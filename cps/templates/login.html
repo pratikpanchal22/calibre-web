@@ -41,6 +41,11 @@
           </svg>
         </a>
       {% endif %}
+      {% for pid, pname in oauth_check.items() %}{% if pname == 'nthnode' %}
+        <a href="{{url_for('oauth.nthnode_login')}}" class="pull-right btn btn-default" style="margin-left:8px;font-weight:600;">
+          nthNode
+        </a>
+      {% endif %}{% endfor %}
       {% if 2 in oauth_check %}
         <a href="{{url_for('oauth.google_login')}}" class="pull-right google">
             <svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px"

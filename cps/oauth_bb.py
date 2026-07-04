@@ -21,12 +21,13 @@
 #  along with this program. If not, see <http://www.gnu.org/licenses/>
 
 import json
+import os
 from functools import wraps
 
 from flask import session, request, make_response, abort
 from flask import Blueprint, flash, redirect, url_for
 from flask_babel import gettext as _
-from flask_dance.consumer import oauth_authorized, oauth_error
+from flask_dance.consumer import oauth_authorized, oauth_error, OAuth2ConsumerBlueprint
 from flask_dance.contrib.github import make_github_blueprint, github
 from flask_dance.contrib.google import make_google_blueprint, google
 from oauthlib.oauth2 import TokenExpiredError, InvalidGrantError
@@ -216,43 +217,73 @@ def unlink_oauth(provider):
 
 
 def generate_oauth_blueprints():
-    if not ub.session.query(ub.OAuthProvider).count():
-        for provider in ("github", "google"):
+    auth_server_url = os.environ.get("AUTH_SERVER_BASE_URL", "http://localhost:9000")
+
+    # Idempotently seed any missing providers
+    existing_names = {p.provider_name for p in ub.session.query(ub.OAuthProvider).all()}
+    for provider_name in ("github", "google", "nthnode"):
+        if provider_name not in existing_names:
             oauthProvider = ub.OAuthProvider()
-            oauthProvider.provider_name = provider
+            oauthProvider.provider_name = provider_name
             oauthProvider.active = False
             ub.session.add(oauthProvider)
-            ub.session_commit("{} Blueprint Created".format(provider))
+            ub.session_commit("{} Blueprint Created".format(provider_name))
 
-    oauth_ids = ub.session.query(ub.OAuthProvider).all()
+    providers = {p.provider_name: p for p in ub.session.query(ub.OAuthProvider).all()}
+
     ele1 = dict(provider_name='github',
-                id=oauth_ids[0].id,
-                active=oauth_ids[0].active,
-                oauth_client_id=oauth_ids[0].oauth_client_id,
+                id=providers['github'].id,
+                active=providers['github'].active,
+                oauth_client_id=providers['github'].oauth_client_id,
                 scope=None,
-                oauth_client_secret=oauth_ids[0].oauth_client_secret,
+                oauth_client_secret=providers['github'].oauth_client_secret,
                 obtain_link='https://github.com/settings/developers')
     ele2 = dict(provider_name='google',
-                id=oauth_ids[1].id,
-                active=oauth_ids[1].active,
+                id=providers['google'].id,
+                active=providers['google'].active,
                 scope=["https://www.googleapis.com/auth/userinfo.email"],
-                oauth_client_id=oauth_ids[1].oauth_client_id,
-                oauth_client_secret=oauth_ids[1].oauth_client_secret,
+                oauth_client_id=providers['google'].oauth_client_id,
+                oauth_client_secret=providers['google'].oauth_client_secret,
                 obtain_link='https://console.developers.google.com/apis/credentials')
+    ele3 = dict(provider_name='nthnode',
+                id=providers['nthnode'].id,
+                active=providers['nthnode'].active,
+                scope=["openid", "profile", "email"],
+                oauth_client_id=providers['nthnode'].oauth_client_id,
+                oauth_client_secret=providers['nthnode'].oauth_client_secret,
+                obtain_link=auth_server_url,
+                auth_server_url=auth_server_url)
     oauthblueprints.append(ele1)
     oauthblueprints.append(ele2)
+    oauthblueprints.append(ele3)
 
     for element in oauthblueprints:
         if element['provider_name'] == 'github':
-            blueprint_func = make_github_blueprint
-        else:
-            blueprint_func = make_google_blueprint
-        blueprint = blueprint_func(
-            client_id=element['oauth_client_id'],
-            client_secret=element['oauth_client_secret'],
-            redirect_to="oauth."+element['provider_name']+"_login",
-            scope=element['scope']
-        )
+            blueprint = make_github_blueprint(
+                client_id=element['oauth_client_id'],
+                client_secret=element['oauth_client_secret'],
+                redirect_to="oauth.github_login",
+                scope=element['scope']
+            )
+        elif element['provider_name'] == 'google':
+            blueprint = make_google_blueprint(
+                client_id=element['oauth_client_id'],
+                client_secret=element['oauth_client_secret'],
+                redirect_to="oauth.google_login",
+                scope=element['scope']
+            )
+        else:  # nthnode
+            blueprint = OAuth2ConsumerBlueprint(
+                "nthnode",
+                __name__,
+                client_id=element['oauth_client_id'],
+                client_secret=element['oauth_client_secret'],
+                base_url=auth_server_url,
+                authorization_url=auth_server_url + "/oauth2/authorize",
+                token_url=auth_server_url + "/oauth2/token",
+                redirect_to="oauth.nthnode_login",
+                scope=" ".join(element['scope']),
+            )
         element['blueprint'] = blueprint
         element['blueprint'].backend = OAuthBackend(ub.OAuth, ub.session, str(element['id']),
                                                     user=current_user, user_required=True)
@@ -329,6 +360,37 @@ if ub.oauth_support:
         )  # ToDo: Translate
         flash(msg, category="error")
 
+    @oauth_authorized.connect_via(oauthblueprints[2]['blueprint'])
+    def nthnode_logged_in(blueprint, token):
+        if not token:
+            flash(_("Failed to log in with nthNode."), category="error")
+            log.error("Failed to log in with nthNode")
+            return False
+
+        auth_server_url = oauthblueprints[2]['auth_server_url']
+        resp = blueprint.session.get(auth_server_url + "/userinfo")
+        if not resp.ok:
+            flash(_("Failed to fetch user info from nthNode."), category="error")
+            log.error("Failed to fetch user info from nthNode: %s", resp.text)
+            return False
+
+        user_info = resp.json()
+        user_id = str(user_info.get("sub", user_info.get("email", "")))
+        return oauth_update_token(str(oauthblueprints[2]['id']), token, user_id)
+
+    @oauth_error.connect_via(oauthblueprints[2]['blueprint'])
+    def nthnode_error(blueprint, error, error_description=None, error_uri=None):
+        msg = (
+            "OAuth error from {name}! "
+            "error={error} description={description} uri={uri}"
+        ).format(
+            name=blueprint.name,
+            error=error,
+            description=error_description,
+            uri=error_uri,
+        )
+        flash(msg, category="error")
+
 
 @oauth.route('/link/github')
 @oauth_required
@@ -376,3 +438,19 @@ def google_login():
 @user_login_required
 def google_login_unlink():
     return unlink_oauth(oauthblueprints[1]['id'])
+
+
+@oauth.route('/link/nthnode')
+@oauth_required
+def nthnode_login():
+    provider_id = oauthblueprints[2]['id']
+    user_id = session.get(str(provider_id) + '_oauth_user_id', '')
+    if not user_id:
+        return redirect(url_for('nthnode.login'))
+    return bind_oauth_or_register(provider_id, user_id, 'nthnode.login', 'nthnode')
+
+
+@oauth.route('/unlink/nthnode', methods=["GET"])
+@user_login_required
+def nthnode_login_unlink():
+    return unlink_oauth(oauthblueprints[2]['id'])

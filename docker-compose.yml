@@ -1,0 +1,15 @@
+services:
+  calibre-web:
+    build: .
+    ports:
+      - "8083:8083"
+    volumes:
+      - calibre_config:/config
+      - ./books:/books
+    environment:
+      - CALIBRE_DBPATH=/config
+      - AUTH_SERVER_BASE_URL=${AUTH_SERVER_BASE_URL:-http://host.docker.internal:9000}
+    restart: unless-stopped
+
+volumes:
+  calibre_config:
