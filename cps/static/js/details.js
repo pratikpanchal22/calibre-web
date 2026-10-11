@@ -83,8 +83,9 @@ $(function() {
         var d = new Date(utc);
         if (!isNaN(d)) {
             var pad = function(n) { return String(n).padStart(2, "0"); };
+            var h = d.getHours(), ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 || 12;
             var local = pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() +
-                        ", " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+                        ", " + pad(h12) + ":" + pad(d.getMinutes()) + " " + ampm;
             $w.find(".kindle-sent-date").text("Sent to Kindle on " + local);
         }
     }
