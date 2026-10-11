@@ -241,6 +241,12 @@ span.glyphicon.glyphicon-tags {
   vertical-align: text-top;
 }
 
+.navigation span.glyphicon.glyphicon-tags {
+  color: #444;
+  padding-right: 0px;
+  vertical-align: baseline;
+}
+
 .book-meta { padding-bottom: 20px; }
 
 .navbar-default .navbar-toggle .icon-bar { background-color: #000; }
@@ -422,6 +428,21 @@ input.pill:not(:checked) + label .glyphicon { display: none; }
   overflow-y: auto;
 }
 
+#fileModal .modal-content {
+  max-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+}
+
+#fileModal .modal-body {
+  overflow: hidden;
+}
+
+#file_table_wrapper {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
 div.log {
   font-family: Courier New, serif;
   font-size: 12px;
@@ -484,6 +505,11 @@ body > div.container-fluid > div.row-fluid > div.col-sm-2::-webkit-scrollbar {
 
 body > div.container-fluid  {
   padding-right: 0px;
+}
+
+.input-group .form-control,
+.input-group .toggle-password {
+  height: 40px;
 }
 
 .kindle-sent-warning {
