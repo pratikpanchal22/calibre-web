@@ -166,6 +166,30 @@ $("#form-upload-format").uploadprogress({
     modalTitleFailed: $("#form-upload-format").data("failed")
 });
 
+$(document).on('click', '.toggle-password', function (event) {
+    event.preventDefault();
+    var button = $(this);
+    var selector = button.data('target');
+    var passwordInput = $(selector);
+    if (!passwordInput.length) {
+        return;
+    }
+    var isPassword = passwordInput.attr('type') === 'password';
+    passwordInput.attr('type', isPassword ? 'text' : 'password');
+    var icon = button.find('.glyphicon');
+    if (icon.length) {
+        icon.toggleClass('glyphicon-eye-open', !isPassword);
+        icon.toggleClass('glyphicon-eye-close', isPassword);
+    }
+    var showLabel = button.attr('data-password-show') || button.attr('aria-label') || button.attr('title');
+    var hideLabel = button.attr('data-password-hide') || showLabel;
+    var label = isPassword ? hideLabel : showLabel;
+    button.attr({
+        'aria-label': label,
+        'title': label
+    });
+});
+
 $(document).ready(function() {
     var inp = $('#query').first()
     if (inp.length) {
@@ -302,6 +326,20 @@ $(function() {
         $("#RestartDialog").modal("hide");
     }
 
+    function waitForAdminAlive(onAvailable) {
+        var aliveInterval = setInterval(function () {
+            $.get({
+                url: getPath() + "/admin/alive",
+                success: function (d, statusText, xhr) {
+                    if (xhr.status < 400) {
+                        clearInterval(aliveInterval);
+                        onAvailable();
+                    }
+                },
+            });
+        }, 1000);
+    }    
+
     function cleanUp() {
         clearInterval(updateTimerID);
         $("#spinner2").hide();
@@ -384,14 +422,14 @@ $(function() {
         });
     }
 
-    $(".discover .row").isotope({
+    $(".discover .row.display-flex").isotope({
         // options
         itemSelector : ".book",
         layoutMode : "fitRows"
     });
 
     if ($(".load-more").length && $(".next").length) {
-        var $loadMore = $(".load-more .row").infiniteScroll({
+        var $loadMore = $(".load-more .row.display-flex").infiniteScroll({
             debug: false,
             // selector for the paged navigation (it will be hidden)
             path : ".next",
@@ -406,7 +444,7 @@ $(function() {
                 $(" a:not(.dropdown-toggle) ")
                   .removeAttr("data-toggle");
             }
-            $(".load-more .row").isotope( "appended", $(data), null );
+            $(".load-more .row.display-flex").isotope( "appended", $(data), null );
         });
 
         // fix for infinite scroll on CaliBlur Theme (#981)
@@ -414,7 +452,7 @@ $(function() {
         $(".col-sm-10").bind("scroll", function () {
             if (
                 $(this).scrollTop() + $(this).innerHeight() >=
-                $(this)[0].scrollHeight
+                $(this)[0].scrollHeight - 5
             ) {
                 $loadMore.infiniteScroll("loadNextPage");
                 window.history.replaceState({}, null, $loadMore.infiniteScroll("getAbsolutePath"));
@@ -432,7 +470,7 @@ $(function() {
             data: JSON.stringify({"parameter":0}),
             success: function success() {
                 $("#spinner").show();
-                setTimeout(restartTimer, 3000);
+                waitForAdminAlive(restartTimer);
             }
         });
     });
@@ -757,26 +795,18 @@ $(function() {
         $("#flash_danger").remove();
         $.post(getPath() + request_path, $(this).closest("form").serialize(), function(data) {
             $('#config_upload_formats').val(data.config_upload);
-            if(data.reboot) {
+            if (data.reboot) {
                 $("#spinning_success").show();
-                var rebootInterval = setInterval(function(){
-                    $.get({
-                        url:getPath() + "/admin/alive",
-                        success: function (d, statusText, xhr) {
-                            if (xhr.status < 400) {
-                                $("#spinning_success").hide();
-                                clearInterval(rebootInterval);
-                                if (data.result) {
-                                    handle_response(data.result);
-                                    data.result = "";
-                                }
-                            }
-                        },
-                    });
-                }, 1000);
+                waitForAdminAlive(function () {
+                    $("#spinning_success").hide();
+                    if (data.result) {
+                        handle_response(data.result);
+                        data.result = "";
+                    }
+                });
             } else {
                 handle_response(data.result);
-            }
+            }           
         });
     });
 
@@ -826,7 +856,7 @@ $(function() {
     });
 
     $(window).resize(function() {
-        $(".discover .row").isotope("layout");
+        $(".discover .row.display-flex").isotope("layout");
     });
 
     $("#import_ldap_users").click(function() {
@@ -851,7 +881,7 @@ $(function() {
         $(this).parent().find("a.author-name").slice($(this).data("authors-max")).toggle();
         $(this).parent().find("span.author-hidden-divider").toggle();
         $(this).html() === $(this).data("collapse-caption") ? $(this).html("(...)") : $(this).html($(this).data("collapse-caption"));
-        $(".discover .row").isotope("layout");
+        $(".discover .row.display-flex").isotope("layout");
     });
 
     $(".update-view").click(function(e) {

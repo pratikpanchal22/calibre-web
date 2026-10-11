@@ -34,6 +34,7 @@ from flask import send_from_directory, make_response, abort, url_for, Response, 
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
 from flask_babel import get_locale
+from flask_babel import force_locale
 from .cw_login import current_user
 from sqlalchemy.sql.expression import true, false, and_, or_, text, func
 from sqlalchemy.exc import InvalidRequestError, OperationalError
@@ -58,6 +59,7 @@ from . import logger, config, db, ub, fs
 from . import gdriveutils as gd
 from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
                         SUPPORTED_CALIBRE_BINARIES)
+from .binary_helper import resolve_binary_path, SUPPORTED_UNRAR_BINARIES
 from .subproc_wrapper import process_wait
 from .services.worker import WorkerThread
 from .tasks.mail import TaskEmail
@@ -68,7 +70,6 @@ from .epub_helper import get_content_opf, create_new_metadata_backup, updateEpub
 from .embed_helper import do_calibre_export
 
 log = logger.create()
-
 try:
     from wand.image import Image
     from wand.exceptions import MissingDelegateError, BlobError
@@ -127,18 +128,20 @@ def send_test_mail(ereader_mail, user_name):
 
 
 # Send registration email or password reset email, depending on parameter resend (False means welcome email)
-def send_registration_mail(e_mail, user_name, default_password, resend=False):
-    txt = "Hi %s!\r\n" % user_name
-    if not resend:
-        txt += "Your account at Calibre-Web has been created.\r\n"
-    txt += "Please log in using the following information:\r\n"
-    txt += "Username: %s\r\n" % user_name
-    txt += "Password: %s\r\n" % default_password
-    txt += "Don't forget to change your password after your first login.\r\n"
-    txt += "Regards,\r\n\r\n"
-    txt += "Calibre-Web"
+def send_registration_mail(e_mail, user_name, default_password, resend=False, locale=None):
+    with force_locale(locale or config.config_default_locale):
+        txt = _("Hi %(name)s!", name=user_name) + "\r\n"
+        if not resend:
+            txt += _("Your account at Calibre-Web has been created.") + "\r\n"
+        txt += _("Please log in using the following information:") + "\r\n"
+        txt += _("Username: %(name)s", name=user_name) + "\r\n"
+        txt += _("Password: %(password)s", password=default_password) + "\r\n"
+        txt += _("Don't forget to change your password after your first login.") + "\r\n"
+        txt += _("Regards,") + "\r\n\r\n"
+        txt += "Calibre-Web"
+        subject = _('Get Started with Calibre-Web')
     WorkerThread.add(None, TaskEmail(
-        subject=_('Get Started with Calibre-Web'),
+        subject=subject,
         filepath=None,
         attachment=None,
         settings=config.get_mail_settings(),
@@ -595,7 +598,7 @@ def reset_password(user_id):
         password = generate_random_password(config.config_password_min_length)
         existing_user.password = generate_password_hash(password)
         ub.session.commit()
-        send_registration_mail(existing_user.email, existing_user.name, password, True)
+        send_registration_mail(existing_user.email, existing_user.name, password, True, existing_user.locale)
         return 1, existing_user.name
     except Exception:
         ub.session.rollback()
@@ -935,6 +938,11 @@ def do_download_file(book, book_format, client, data, headers):
                     filename, download_name = do_kepubify_metadata_replace(book, output)
                 elif book_format != "kepub" and config.config_binariesdir:
                     filename, download_name = do_calibre_export(book.id, book_format)
+                    if filename is None:
+                        log.warning('Metadata export failed for book id %s. Falling back to original file: %s',
+                                    book.id, download_name)
+                        filename = os.path.dirname(output)
+                        download_name = book_name
             else:
                 return gd.do_gdrive_download(df, headers)
         else:
@@ -953,10 +961,15 @@ def do_download_file(book, book_format, client, data, headers):
                                                                                       book_name + "." + book_format))
         elif book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
             filename, download_name = do_calibre_export(book.id, book_format)
+            if filename is None:
+                log.warning('Metadata export failed for book id %s. Falling back to original file: %s',
+                            book.id, download_name)
+                filename = os.path.join(config.get_book_path(), book.path)
+                download_name = book_name
         else:
             download_name = book_name
 
-    # Clean up staged copies in /tmp/calibre_web after the response is sent
+    # Clean up staged copies in the instance temp directory after the response is sent
     # (kepubify / calibre-export branches) so the temp dir does not grow unbounded.
     if filename == get_temp_dir():
         _tmp_path = os.path.join(filename, download_name + "." + book_format)
@@ -999,12 +1012,12 @@ def check_unrar(unrar_location):
     if not unrar_location:
         return
 
-    if not os.path.exists(unrar_location):
-        return _('UnRar binary file not found')
+    unrar_binary = resolve_binary_path(unrar_location, SUPPORTED_UNRAR_BINARIES)
+    if not unrar_binary:
+        return _('Please specify a valid UnRar directory')
 
     try:
-        unrar_location = [unrar_location]
-        value = process_wait(unrar_location, pattern='UNRAR (.*) freeware')
+        value = process_wait([unrar_binary], pattern='UNRAR (.*) freeware')
         if value:
             version = value.group(1)
             log.debug("UnRar version %s", version)
