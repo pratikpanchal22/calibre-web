@@ -77,6 +77,20 @@ $(".sendbtn-form").click(function() {
 });
 
 $(function() {
+    var $w = $(".kindle-sent-warning[data-utc]");
+    if ($w.length) {
+        var utc = $w.data("utc");
+        var d = new Date(utc);
+        if (!isNaN(d)) {
+            var pad = function(n) { return String(n).padStart(2, "0"); };
+            var local = pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() +
+                        ", " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+            $w.find(".kindle-sent-date").text("Sent to Kindle on " + local);
+        }
+    }
+});
+
+$(function() {
     $("#have_read_form").ajaxForm();
 });
 

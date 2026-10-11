@@ -115,9 +115,10 @@
                         {% endif %}
                         {% if current_user.kindle_mail and entry.email_share_list %}
                             {% if entry.kindle_send_log %}
-                                <div class="kindle-sent-warning">
+                                <div class="kindle-sent-warning"
+                                     data-utc="{{ entry.kindle_send_log[0].sent_at.isoformat() }}Z">
                                     <span class="glyphicon glyphicon-time"></span>
-                                    {{ _('Sent to Kindle on %(date)s', date=entry.kindle_send_log[0].sent_at.strftime('%d/%m/%Y, %H:%M')) }}
+                                    <span class="kindle-sent-date">{{ _('Sent to Kindle on %(date)s', date=entry.kindle_send_log[0].sent_at.strftime('%d/%m/%Y, %H:%M')) }}</span>
                                 </div>
                             {% endif %}
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
