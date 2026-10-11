@@ -513,6 +513,19 @@ class Downloads(Base):
         return '<Download %r' % self.book_id
 
 
+# Tracks books sent to Kindle per user to prevent accidental duplicate sends
+class KindleSend(Base):
+    __tablename__ = 'kindle_send'
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey('user.id'))
+    sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return '<KindleSend book=%r user=%r>' % (self.book_id, self.user_id)
+
+
 # Baseclass representing allowed domains for registration
 class Registration(Base):
     __tablename__ = 'registration'
@@ -643,6 +656,24 @@ def delete_download(book_id):
         session.commit()
     except exc.OperationalError:
         session.rollback()
+
+
+def log_kindle_send(book_id, user_id):
+    """Record a successful Kindle send so the detail page can warn on repeat sends."""
+    entry = KindleSend(book_id=book_id, user_id=user_id)
+    session.add(entry)
+    try:
+        session.commit()
+    except exc.OperationalError:
+        session.rollback()
+
+
+def get_kindle_sends(book_id, user_id):
+    """Return list of KindleSend rows for this book+user, newest first."""
+    return (session.query(KindleSend)
+            .filter(KindleSend.book_id == book_id, KindleSend.user_id == user_id)
+            .order_by(KindleSend.sent_at.desc())
+            .all())
 
 # Generate user Guest (translated text), as anonymous user, no rights
 def create_anonymous_user(_session):

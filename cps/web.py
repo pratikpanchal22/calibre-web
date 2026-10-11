@@ -1267,6 +1267,7 @@ def send_to_ereader(book_id, book_format, convert):
                            current_user.name)
         if result is None:
             ub.update_download(book_id, int(current_user.id))
+            ub.log_kindle_send(book_id, int(current_user.id))
             response = [{'type': "success", 'message': _("Success! Book queued for sending to %(eReadermail)s",
                                                        eReadermail=current_user.kindle_mail)}]
         else:
@@ -1639,6 +1640,7 @@ def show_book(book_id):
         entry.ordered_authors = calibre_db.order_authors([entry])
 
         entry.email_share_list = check_send_to_ereader(entry)
+        entry.kindle_send_log = ub.get_kindle_sends(book_id, int(current_user.id))
         entry.reader_list = check_read_formats(entry)
 
         entry.reader_list_sizes = dict()
