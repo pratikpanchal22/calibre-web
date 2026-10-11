@@ -114,6 +114,12 @@
                             </div>
                         {% endif %}
                         {% if current_user.kindle_mail and entry.email_share_list %}
+                            {% if entry.kindle_send_log %}
+                                <div class="kindle-sent-warning" title="{{ _('Last sent: %(date)s', date=entry.kindle_send_log[0].sent_at.strftime('%b %d, %Y')) }}">
+                                    <span class="glyphicon glyphicon-warning-sign"></span>
+                                    {{ _('Already sent to Kindle') }} &mdash; {{ entry.kindle_send_log[0].sent_at.strftime('%b %d, %Y') }}
+                                </div>
+                            {% endif %}
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             {% if entry.email_share_list.__len__() == 1 %}
                                 <div class="btn-group sendBtn" role="group">
