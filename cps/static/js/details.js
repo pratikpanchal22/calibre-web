@@ -37,14 +37,43 @@ function handleResponse (data) {
     }
 }
 $(".sendbtn-form").click(function() {
-    $.ajax({
-        method: 'post',
-        url: $(this).data('href'),
-        data: {csrf_token: $("input[name='csrf_token']").val()},
-        success: function (data) {
-            handleResponse(data)
+    var $btn = $(this);
+
+    function doSend() {
+        $.ajax({
+            method: "post",
+            url: $btn.data("href"),
+            data: {csrf_token: $("input[name='csrf_token']").val()},
+            success: function (data) { handleResponse(data); }
+        });
+    }
+
+    if ($btn.data("kindle-warned")) {
+        if (!$("#kindle-dup-modal").length) {
+            $("body").append(
+                '<div class="modal fade" id="kindle-dup-modal" tabindex="-1" role="dialog" aria-labelledby="kindle-dup-title">' +
+                '<div class="modal-dialog modal-sm" role="document">' +
+                '<div class="modal-content">' +
+                '<div class="modal-header">' +
+                '<button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span></button>' +
+                '<h4 class="modal-title" id="kindle-dup-title">' +
+                '<span class="glyphicon glyphicon-warning-sign"></span> Already sent to Kindle</h4>' +
+                '</div>' +
+                '<div class="modal-body">This book was already sent to your Kindle. Send it again?</div>' +
+                '<div class="modal-footer">' +
+                '<button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>' +
+                '<button type="button" class="btn btn-warning" id="kindle-dup-confirm">Send Duplicate</button>' +
+                '</div></div></div></div>'
+            );
         }
-    })
+        $("#kindle-dup-modal").modal("show");
+        $("#kindle-dup-modal").one("click", "#kindle-dup-confirm", function() {
+            $("#kindle-dup-modal").modal("hide");
+            doSend();
+        });
+    } else {
+        doSend();
+    }
 });
 
 $(function() {

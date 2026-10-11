@@ -217,6 +217,27 @@ body.blur #fileModal #file_confirm {
   color: #fff;
 }
 
+body.blur .kindle-sent-warning {
+  background-color: rgba(240, 168, 48, 0.1);
+  border-color: rgba(240, 168, 48, 0.3);
+  color: #f0a830;
+}
+
+body.blur #kindle-dup-modal .modal-content {
+  background-color: var(--color-bg, #2b2b3b);
+  color: var(--color-text, #ccc);
+  border-color: rgba(240, 168, 48, 0.4);
+}
+
+body.blur #kindle-dup-modal .modal-header {
+  border-bottom-color: rgba(240, 168, 48, 0.3);
+  color: #f0a830;
+}
+
+body.blur #kindle-dup-modal .modal-footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
 body.blur #fileModal .modal-footer {
   display: flex;
   align-items: center;

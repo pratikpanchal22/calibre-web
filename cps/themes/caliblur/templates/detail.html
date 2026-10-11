@@ -115,15 +115,18 @@
                         {% endif %}
                         {% if current_user.kindle_mail and entry.email_share_list %}
                             {% if entry.kindle_send_log %}
-                                <div class="kindle-sent-warning" title="{{ _('Last sent: %(date)s', date=entry.kindle_send_log[0].sent_at.strftime('%b %d, %Y')) }}">
-                                    <span class="glyphicon glyphicon-warning-sign"></span>
-                                    {{ _('Already sent to Kindle') }} &mdash; {{ entry.kindle_send_log[0].sent_at.strftime('%b %d, %Y') }}
+                                <div class="kindle-sent-warning">
+                                    <span class="glyphicon glyphicon-time"></span>
+                                    {{ _('Sent to Kindle on %(date)s', date=entry.kindle_send_log[0].sent_at.strftime('%d/%m/%Y, %H:%M')) }}
                                 </div>
                             {% endif %}
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             {% if entry.email_share_list.__len__() == 1 %}
                                 <div class="btn-group sendBtn" role="group">
-                                    <button id="sendbtn" class="btn btn-primary sendbtn-form send-btn-tooltip" data-href="{{url_for('web.send_to_ereader', book_id=entry.id, book_format=entry.email_share_list[0]['format'], convert=entry.email_share_list[0]['convert'])}}" data-toggle="tooltip" data-placement="bottom" data-viewport=".btn-toolbar" title="{{ entry.email_share_list[0]['text'] }}">
+                                    <button id="sendbtn" class="btn btn-primary sendbtn-form send-btn-tooltip"
+                                            data-href="{{url_for('web.send_to_ereader', book_id=entry.id, book_format=entry.email_share_list[0]['format'], convert=entry.email_share_list[0]['convert'])}}"
+                                            {% if entry.kindle_send_log %}data-kindle-warned="true"{% endif %}
+                                            data-toggle="tooltip" data-placement="bottom" data-viewport=".btn-toolbar" title="{{ entry.email_share_list[0]['text'] }}">
                                         <span class="glyphicon glyphicon-send"></span> {{entry.email_share_list[0]['text']}}
                                     </button>
                                 </div>
@@ -137,7 +140,9 @@
                                     <ul class="dropdown-menu" aria-labelledby="send-to-ereader">
                                         {% for format in entry.email_share_list %}
                                             <li>
-                                                <a class="sendbtn-form" data-href="{{url_for('web.send_to_ereader', book_id=entry.id, book_format=format['format'], convert=format['convert'])}}">{{ format['text'] }}</a>
+                                                <a class="sendbtn-form"
+                                                   {% if entry.kindle_send_log %}data-kindle-warned="true"{% endif %}
+                                                   data-href="{{url_for('web.send_to_ereader', book_id=entry.id, book_format=format['format'], convert=format['convert'])}}">{{ format['text'] }}</a>
                                             </li>
                                         {% endfor %}
                                     </ul>

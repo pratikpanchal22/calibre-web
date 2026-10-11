@@ -513,15 +513,14 @@ body > div.container-fluid  {
 }
 
 .kindle-sent-warning {
-  display: inline-block;
-  margin-bottom: 6px;
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
   border-radius: 4px;
-  background-color: #fcf8e3;
-  border: 1px solid #faebcc;
+  background-color: rgba(138, 109, 59, 0.12);
+  border: 1px solid rgba(138, 109, 59, 0.35);
   color: #8a6d3b;
-  font-size: 0.85em;
-}
-.kindle-sent-warning .glyphicon {
-  margin-right: 4px;
+  font-size: 0.82em;
+  vertical-align: middle;
 }
